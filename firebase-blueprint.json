@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat session record.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["userId", "title", "createdAt"]
+    },
+    "Log": {
+      "title": "Log",
+      "description": "Log entry in a chat session.",
+      "type": "object",
+      "properties": {
+        "sender": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["sender", "text", "type", "timestamp", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profiles."
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Stores session references for a user."
+    },
+    "/users/{userId}/sessions/{sessionId}/logs/{logId}": {
+      "schema": "Log",
+      "description": "Log entries for the chat session."
+    }
+  }
+}

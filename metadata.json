@@ -1,0 +1,6 @@
+{
+  "name": "J.A.R.V.I.S OS",
+  "description": "A web-based AI voice assistant HUD supporting continuous listening and simulated system commands.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": []
+}

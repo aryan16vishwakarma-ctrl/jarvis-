@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) 
+        && request.resource.data.keys().hasAll(["email", "createdAt"])
+        && request.resource.data.keys().size() == 2
+        && request.resource.data.createdAt == request.time;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email'])
+        && request.resource.data.email is string;
+      allow delete: if false;
+
+      // User sessions
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasAll(["userId", "title", "createdAt"])
+          && request.resource.data.userId == userId
+          && request.resource.data.keys().size() == 3
+          && request.resource.data.createdAt == request.time;
+        allow update: if isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["title"])
+          && request.resource.data.title is string;
+        allow delete: if isOwner(userId);
+
+        // Logs in a session
+        match /logs/{logId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId)
+            && request.resource.data.keys().hasAll(["sender", "text", "type", "timestamp", "createdAt"])
+            && request.resource.data.keys().size() == 5
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.sender is string
+            && request.resource.data.text is string
+            && request.resource.data.type is string
+            && request.resource.data.timestamp is string;
+          allow update: if false; // Logs are immutable
+          allow delete: if false; // Logs cannot be deleted individually
+        }
+      }
+    }
+  }
+}
