@@ -1,18 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
-let aiClient = null;
-
-export function getAI() {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("CRITICAL: GEMINI_API_KEY environment variable is missing.");
-    }
-    aiClient = new GoogleGenAI({ apiKey: apiKey || '' });
-  }
-  return aiClient;
-}
-
 const SYSTEM_INSTRUCTION = `You are Jarvis, a highly advanced artificial intelligence assistant with a futuristic HUD interface.
 Current User Date & Time: ${new Date().toLocaleString()}.
 You can assist the user by:
@@ -97,26 +82,75 @@ export const showNewsDecl = {
   }
 };
 
-export function createNewChat() {
-  return getAI().chats.create({
-    model: "gemini-3-flash-preview",
-    tools: [
-      { googleSearch: {} },
-      { 
-        functionDeclarations: [
-          openApplicationDecl, 
-          playMusicDecl, 
-          executeSystemCommandDecl, 
-          analyzeCameraDecl, 
-          controlMediaDecl, 
-          showNewsDecl
-        ] 
+class ChatProxy {
+  constructor() {
+    this.history = [];
+  }
+
+  async sendMessage(message) {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          history: this.history,
+          model: "gemini-2.0-flash",
+          systemInstruction: SYSTEM_INSTRUCTION,
+          tools: [
+            { googleSearch: {} },
+            { 
+              functionDeclarations: [
+                openApplicationDecl, 
+                playMusicDecl, 
+                executeSystemCommandDecl, 
+                analyzeCameraDecl, 
+                controlMediaDecl, 
+                showNewsDecl
+              ] 
+            }
+          ],
+          toolConfig: { includeServerSideToolInvocations: true }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'AI Bridge link failed.');
       }
-    ],
-    toolConfig: { includeServerSideToolInvocations: true },
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      temperature: 0.3
+
+      const data = await response.json();
+      
+      // Update local history
+      if (typeof message === 'string') {
+        this.history.push({ role: 'user', parts: [{ text: message }] });
+      } else {
+        this.history.push({ role: 'user', parts: message });
+      }
+
+      const aiParts = [];
+      if (data.text) aiParts.push({ text: data.text });
+      if (data.functionCalls) {
+        data.functionCalls.forEach(call => {
+          aiParts.push({ functionCall: call });
+        });
+      }
+      this.history.push({ role: 'model', parts: aiParts });
+
+      // Match the SDK result structure for compatibility with App.jsx
+      return {
+        response: {
+          text: () => data.text,
+          functionCalls: () => data.functionCalls
+        }
+      };
+    } catch (error) {
+      console.error("[AI INTERACTION ERROR]", error);
+      throw error;
     }
-  });
+  }
+}
+
+export function createNewChat() {
+  return new ChatProxy();
 }

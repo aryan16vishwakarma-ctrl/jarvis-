@@ -453,16 +453,17 @@ export default function App() {
                  setWidget(null);
                  setJarvisState('processing');
                  try {
-                    const reply = await chatRef.current.sendMessage({ 
+                    const result = await chatRef.current.sendMessage({ 
                         message: [
                            { functionResponse: { name: 'analyzeCamera', response: { status: 'success' } } },
                            { text: "Here is the visual feed you requested from my local sensors." },
                            { inlineData: { data: base64.split(',')[1], mimeType: "image/jpeg" } }
                         ]
                     });
-                    if (reply.text) {
-                       addLog('J.A.R.V.I.S', reply.text);
-                       speak(reply.text);
+                    const replyText = result.response.text();
+                    if (replyText) {
+                       addLog('J.A.R.V.I.S', replyText);
+                       speak(replyText);
                     } else {
                        setJarvisState('idle');
                     }
@@ -508,14 +509,11 @@ export default function App() {
       while (retries >= 0) {
         try {
           const payload = systemContext ? `[SYSTEM CONTEXT: ${systemContext}]\nUSER INSTRUCTION: ${text}` : text;
-          const response = await chatRef.current.sendMessage({ message: payload });
+          const result = await chatRef.current.sendMessage({ message: payload });
           
           const responsePayload = {
-            text: response.text || "",
-            functionCalls: response.functionCalls ? response.functionCalls.map((call) => ({
-              name: call.name,
-              args: call.args
-            })) : []
+            text: result.response.text() || "",
+            functionCalls: result.response.functionCalls() || []
           };
           
           const functionResponses = [];
@@ -534,15 +532,16 @@ export default function App() {
           if (reply) {
              addLog('J.A.R.V.I.S', reply);
              speak(reply);
-          } else {
+          } else if (functionResponses.length === 0) {
              setJarvisState('idle');
           }
 
           if (functionResponses.length > 0) {
              chatRef.current.sendMessage({ message: functionResponses }).then((res) => {
-                if (res.text && !reply) {
-                   addLog('J.A.R.V.I.S', res.text);
-                   speak(res.text);
+                const toolReply = res.response.text();
+                if (toolReply && !reply) {
+                   addLog('J.A.R.V.I.S', toolReply);
+                   speak(toolReply);
                 }
              }).catch(console.error);
           }
